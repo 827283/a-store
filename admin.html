@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم – ApexFlow</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* تنسيقات إضافية خاصة بلوحة التحكم */
+        .admin-container { max-width: 1300px; margin: 0 auto; padding: 20px; }
+        .card { background: var(--card-bg); border-radius: var(--radius-lg); padding: 25px; margin-bottom: 30px; box-shadow: var(--shadow-md); }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .full-width { grid-column: 1 / -1; }
+        .images-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 10px; }
+        .image-preview { background: #f1f5f9; aspect-ratio: 1; border-radius: var(--radius-md); border: 2px dashed var(--border); display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; transition: 0.2s; }
+        .image-preview:hover { border-color: var(--primary); }
+        .image-preview img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-md); }
+        .remove-img { position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.6); color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; }
+        .product-table { width: 100%; border-collapse: collapse; }
+        .product-table th, .product-table td { padding: 12px; text-align: right; border-bottom: 1px solid var(--border); }
+        .product-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: var(--radius-sm); }
+        .order-item { background: #f8fafc; border-radius: var(--radius-md); padding: 15px; margin-bottom: 12px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center; }
+        .order-img { width: 60px; height: 60px; object-fit: cover; border-radius: var(--radius-sm); }
+        .copy-btn { background: #e2e8f0; padding: 4px 10px; border-radius: 20px; font-size: 12px; cursor: pointer; margin-right: 8px; display: inline-block; }
+        .btn-sm { padding: 4px 12px; font-size: 0.8rem; }
+        .text-center { text-align: center; }
+        .mb-2 { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <div class="card" style="background: linear-gradient(135deg, #1e293b, #0f172a); color: white; text-align: center;">
+            <h1><i class="fas fa-crown"></i> ApexFlow – لوحة التحكم</h1>
+            <p>إدارة المنتجات والطلبات بكل سهولة</p>
+        </div>
+
+        <!-- نموذج إضافة منتج جديد -->
+        <div class="card">
+            <h2><i class="fas fa-plus-circle"></i> إضافة منتج جديد</h2>
+            <form id="addProductForm">
+                <div class="form-grid">
+                    <div><label>عنوان المنتج *</label><input type="text" id="prodTitle" class="form-input" required></div>
+                    <div><label>السعر (درهم) *</label><input type="number" id="prodPrice" class="form-input" required></div>
+                    <div class="full-width"><label>الوصف *</label><textarea id="prodDesc" rows="3" class="form-input" required></textarea></div>
+                    <div class="full-width">
+                        <label>صور المنتج (اختر حتى 5 صور)</label>
+                        <div class="images-grid" id="imagesGrid"></div>
+                        <input type="file" id="imageUploader" accept="image/*" style="display:none;" multiple>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top:20px"><i class="fas fa-save"></i> إضافة المنتج</button>
+            </form>
+        </div>
+
+        <!-- قائمة المنتجات المنشورة -->
+        <div class="card">
+            <h2><i class="fas fa-boxes"></i> المنتجات المنشورة</h2>
+            <div style="overflow-x: auto;">
+                <table class="product-table">
+                    <thead><tr><th>الصورة</th><th>العنوان</th><th>السعر</th><th>رابط المنتج</th><th>حذف</th></tr></thead>
+                    <tbody id="productsList"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- الطلبات الواردة -->
+        <div class="card">
+            <h2><i class="fas fa-truck"></i> الطلبات الواردة</h2>
+            <div id="ordersContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        // ------------------- إدارة الصور -------------------
+        let currentImages = ['','','','',''];
+        const imagesGrid = document.getElementById('imagesGrid');
+        const imageUploader = document.getElementById('imageUploader');
+        let tempIndex = 0;
+
+        function buildImageGrid() {
+            imagesGrid.innerHTML = '';
+            for(let i=0; i<5; i++) {
+                const div = document.createElement('div');
+                div.className = 'image-preview';
+                div.setAttribute('data-idx', i);
+                if(currentImages[i]) {
+                    div.innerHTML = `<img src="${currentImages[i]}"><div class="remove-img" data-idx="${i}"><i class="fas fa-times"></i></div>`;
+                } else {
+                    div.innerHTML = `<div style="text-align:center; color:#94a3b8;"><i class="fas fa-image fa-2x"></i><br>صورة ${i+1}</div>`;
+                }
+                div.addEventListener('click', (e) => {
+                    if(e.target.classList.contains('remove-img') || e.target.closest('.remove-img')) return;
+                    openImagePicker(i);
+                });
+                imagesGrid.appendChild(div);
+            }
+            document.querySelectorAll('.remove-img').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const idx = parseInt(btn.getAttribute('data-idx'));
+                    currentImages[idx] = '';
+                    buildImageGrid();
+                });
+            });
+        }
+
+        function openImagePicker(index) {
+            tempIndex = index;
+            imageUploader.onchange = (e) => {
+                const file = e.target.files[0];
+                if(file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        currentImages[tempIndex] = ev.target.result;
+                        buildImageGrid();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+            imageUploader.click();
+        }
+
+        // ------------------- المنتجات -------------------
+        let products = [];
+
+        function loadProducts() {
+            const stored = localStorage.getItem('apexflow_products');
+            products = stored ? JSON.parse(stored) : [];
+            renderProductsTable();
+        }
+
+        function saveProducts() {
+            localStorage.setItem('apexflow_products', JSON.stringify(products));
+        }
+
+        function generateId() {
+            return Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+        }
+
+        function addProductToStorage(product) {
+            products.push(product);
+            saveProducts();
+            renderProductsTable();
+        }
+
+        function deleteProduct(id) {
+            products = products.filter(p => p.id !== id);
+            saveProducts();
+            renderProductsTable();
+        }
+
+        function renderProductsTable() {
+            const tbody = document.getElementById('productsList');
+            tbody.innerHTML = '';
+            products.forEach(prod => {
+                const row = tbody.insertRow();
+                row.insertCell(0).innerHTML = prod.images[0] ? `<img src="${prod.images[0]}" class="product-thumb">` : '-';
+                row.insertCell(1).innerText = prod.title;
+                row.insertCell(2).innerText = prod.price;
+                const linkCell = row.insertCell(3);
+                const productUrl = `product.html?id=${prod.id}`;
+                const link = document.createElement('a');
+                link.href = productUrl;
+                link.target = '_blank';
+                link.innerText = 'فتح المنتج';
+                linkCell.appendChild(link);
+                const copyBtn = document.createElement('span');
+                copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+                copyBtn.className = 'copy-btn';
+                copyBtn.title = 'نسخ الرابط';
+                copyBtn.onclick = () => {
+                    const fullUrl = `${window.location.origin}${window.location.pathname.replace('admin.html', '')}${productUrl}`;
+                    navigator.clipboard.writeText(fullUrl);
+                    alert('تم نسخ الرابط');
+                };
+                linkCell.appendChild(copyBtn);
+                const delBtn = document.createElement('button');
+                delBtn.innerText = 'حذف';
+                delBtn.className = 'btn btn-danger btn-sm';
+                delBtn.onclick = () => { if(confirm('حذف المنتج؟')) deleteProduct(prod.id); };
+                row.insertCell(4).appendChild(delBtn);
+            });
+        }
+
+        // إضافة منتج جديد من النموذج
+        document.getElementById('addProductForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const title = document.getElementById('prodTitle').value.trim();
+            const price = parseInt(document.getElementById('prodPrice').value);
+            const description = document.getElementById('prodDesc').value.trim();
+            const images = currentImages.filter(img => img !== '');
+            if(!title || !price || !description || images.length === 0) {
+                alert('يرجى ملء جميع الحقول ورفع صورة واحدة على الأقل');
+                return;
+            }
+            const newProduct = {
+                id: generateId(),
+                title,
+                price,
+                description,
+                images: images,
+                createdAt: new Date().toISOString()
+            };
+            addProductToStorage(newProduct);
+            // إعادة تعيين النموذج
+            document.getElementById('prodTitle').value = '';
+            document.getElementById('prodPrice').value = '';
+            document.getElementById('prodDesc').value = '';
+            currentImages = ['','','','',''];
+            buildImageGrid();
+            alert('تم إضافة المنتج بنجاح');
+        });
+
+        // ------------------- الطلبات -------------------
+        function loadOrders() {
+            const orders = JSON.parse(localStorage.getItem('apexflow_orders') || '[]');
+            const container = document.getElementById('ordersContainer');
+            if(orders.length === 0) {
+                container.innerHTML = '<p class="text-center">لا توجد طلبات بعد</p>';
+                return;
+            }
+            container.innerHTML = '';
+            orders.forEach(order => {
+                const div = document.createElement('div');
+                div.className = 'order-item';
+                div.innerHTML = `
+                    <img src="${order.productImage}" class="order-img" onerror="this.src='https://via.placeholder.com/60'">
+                    <div class="order-details">
+                        <p><strong>المنتج:</strong> ${order.productTitle}</p>
+                        <p><strong>العميل:</strong> ${order.fullName}</p>
+                        <p><strong>العنوان:</strong> ${order.address}</p>
+                        <p><strong>الهاتف:</strong> ${order.phone}</p>
+                        <p><strong>ملاحظة:</strong> ${order.notes || 'لا يوجد'}</p>
+                        <p><small>${order.timestamp}</small></p>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        window.addEventListener('storage', (e) => {
+            if(e.key === 'apexflow_orders') loadOrders();
+        });
+
+        buildImageGrid();
+        loadProducts();
+        loadOrders();
+    </script>
+</body>
+</html>
